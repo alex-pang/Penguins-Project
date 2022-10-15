@@ -1,0 +1,11 @@
+#Standard imports
+import numpy as np
+import pandas as pd
+from matplotlib import pyplot as plt
+
+# importing data
+penguins = pd.read_csv("palmer_penguins.csv")
+
+# Getting rid of penguins with nans in the 'Culmen Length (mm)' column
+nans = penguins['Culmen Length (mm)'].isna()
+penguins = penguins[np.invert(nans)]
