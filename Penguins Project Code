@@ -1,0 +1,171 @@
+import numpy as np
+import pandas as pd
+from matplotlib import pyplot as plt
+
+# importing data
+penguins = pd.read_csv("palmer_penguins.csv")
+
+# Getting rid of penguins with nans in the 'Culmen Length (mm)' column
+nans = penguins['Culmen Length (mm)'].isna()
+penguins = penguins[np.invert(nans)]
+
+# Shortening 'Species' column
+penguins['Species'] = penguins['Species'].str.split().str.get(0)
+
+# Figure 1 (Scatter plot of Body Mass (g) vs Culmen Length (mm))
+fig,ax = plt.subplots(figsize=(8,6))
+
+# dictionary assigning specific colors to each species
+colors = {'Adelie':'red', 'Chinstrap':'green', 'Gentoo':'blue'}
+
+# for loop to plot the scatter points for each species
+for key,val in colors.items():
+    mask = penguins['Species']==key
+    ax.scatter(penguins['Culmen Length (mm)'][mask],
+               penguins['Body Mass (g)'][mask],
+               c=val,
+               label=key)
+ax.set(xlabel = 'Culmen Length (mm)',
+       ylabel = 'Body Mass (g)')
+ax.legend()
+
+# Figure 2 (Barplot of number of penguins by species on each island)
+fig,ax = plt.subplots(1)
+
+islands = ['Biscoe','Dream','Torgerson']
+
+adelie_biscoe = len(penguins[penguins['Species']=='Adelie'][penguins['Island']=='Biscoe'])
+adelie_dream = len(penguins[penguins['Species']=='Adelie'][penguins['Island']=='Dream'])
+adelie_torgersen = len(penguins[penguins['Species']=='Adelie'][penguins['Island']=='Torgersen'])
+
+chinstrap_biscoe = len(penguins[penguins['Species']=='Chinstrap'][penguins['Island']=='Biscoe'])
+chinstrap_dream = len(penguins[penguins['Species']=='Chinstrap'][penguins['Island']=='Dream'])
+chinstrap_torgersen = len(penguins[penguins['Species']=='Chinstrap'][penguins['Island']=='Torgersen'])
+
+gentoo_biscoe = len(penguins[penguins['Species']=='Gentoo'][penguins['Island']=='Biscoe'])
+gentoo_dream = len(penguins[penguins['Species']=='Gentoo'][penguins['Island']=='Dream'])
+gentoo_torgersen = len(penguins[penguins['Species']=='Gentoo'][penguins['Island']=='Torgersen'])
+
+adelie_count = [adelie_biscoe, adelie_dream, adelie_torgersen]
+chinstrap_count = [chinstrap_biscoe, chinstrap_dream, chinstrap_torgersen]
+gentoo_count = [gentoo_biscoe, gentoo_dream, gentoo_torgersen]
+
+ax.bar(islands, adelie_count, color="red", label="Adelie")
+ax.bar(islands, chinstrap_count, bottom=adelie_count, color="green", label="Chinstrap")
+ax.bar(islands, gentoo_count, bottom=adelie_count, color="blue", label="Gentoo")
+ax.set(ylabel='Number of Penguins')
+ax.legend()
+
+# Figure 3 (Histograms)
+fig,ax = plt.subplots(1, 4, figsize=(15, 5))
+
+# columns we are selecting to plot histograms of
+cols = ['Culmen Length (mm)','Culmen Depth (mm)','Flipper Length (mm)','Body Mass (g)']
+
+# for loop to create a histogram plot for each column variable
+for i in range(len(cols)):
+    ax[i].hist(penguins[penguins['Species']=='Adelie'][cols[i]], label='Adelie', alpha=0.4)
+    ax[i].hist(penguins[penguins['Species']=='Chinstrap'][cols[i]], label='Chinstrap', alpha=0.4)
+    ax[i].hist(penguins[penguins['Species']=='Gentoo'][cols[i]], label='Gentoo', alpha=0.4)
+    ax[i].set(title = cols[i],
+                 xlabel = str(cols[i]),
+                 ylabel = 'Number of Penguins')
+    plt.tight_layout()
+
+# Select 3 columns
+from sklearn import preprocessing
+
+cols = ['Island','Culmen Length (mm)','Body Mass (g)']
+x_penguins = penguins[cols]
+
+le = preprocessing.LabelEncoder()
+x_penguins['Island'] = le.fit_transform(x_penguins['Island'])
+
+# Split the data
+from sklearn.model_selection import train_test_split
+
+X = x_penguins
+y = penguins['Species']
+y = le.fit_transform(y)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+X_train.shape, X_test.shape, y_train.shape, y_test.shape
+
+# Cross-Validation
+from sklearn import tree 
+from sklearn.model_selection import cross_val_score
+
+best_score=-np.inf
+N=30 #largest max depth
+scores=np.zeros(N)
+
+for d in range(1,N+1):
+    T=tree.DecisionTreeClassifier(max_depth=d)
+    scores[d-1]=cross_val_score(T,X_train,y_train,cv=5).mean()
+    if scores[d-1]>best_score:
+        best_depth=d
+        best_score=scores[d-1]
+        
+best_depth,best_score
+
+T=tree.DecisionTreeClassifier(max_depth=best_depth)
+T.fit(X_train,y_train)
+T.score(X_train,y_train), T.score(X_test,y_test)
+
+fig,ax=plt.subplots(figsize=(25,20))
+p = tree.plot_tree(T,filled=True,feature_names=X_train.columns,fontsize=10)
+
+# Inspect wrong cases
+y_train_pred = T.predict(X_train)
+y_train_pred
+
+from sklearn.metrics import confusion_matrix
+c = confusion_matrix(y_train, y_train_pred)
+print(c)
+
+mistakes = X_train[y_train != y_train_pred]
+mistake_labels = y_train[y_train != y_train_pred]
+mistake_preds = y_train_pred[y_train != y_train_pred]
+
+print(mistake_preds, mistake_labels)
+
+mistakes["Correct Species"] = mistake_labels.tolist()
+mistakes["Predicted Species"] = mistake_preds.tolist()
+mistakes
+
+# Error Analysis
+penguins_copy = penguins.copy()
+
+le = preprocessing.LabelEncoder()
+penguins_copy["Island"] = le.fit_transform(penguins_copy["Island"])
+
+penguins_copy.groupby("Species").aggregate(np.mean)
+
+# Plot the decision regions
+from mlxtend.plotting import plot_decision_regions
+
+# fit the model on training set again
+T=tree.DecisionTreeClassifier(max_depth=best_depth)
+T.fit(X_train,y_train)
+
+# create subplots
+fig,ax=plt.subplots(1,3,figsize=(20,5))
+width = 0.5
+
+# loop through each of the 3 islands
+for value in range(3):
+    # plot the decision graph for entries of this specific island
+    plot_decision_regions(np.array(X_train), np.array(y_train), clf = T,
+                          feature_index=[1,2],
+                          filler_feature_values={0: value},
+                          filler_feature_ranges={0: width},
+                          ax=ax[value])
+    # setting appropriate title and labels
+    ax[value].set(title="Island = " + sorted(list(set(penguins["Island"])))[value],
+                  xlabel="Culmen Length (mm)",
+                  ylabel="Body Mass (g)")
+    # setting legend back to species' names
+    L=ax[value].legend()
+    L.get_texts()[0].set_text('Adelie')
+    L.get_texts()[1].set_text('Chinstrap')
+    L.get_texts()[2].set_text('Gentoo')
