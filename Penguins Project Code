@@ -169,3 +169,62 @@ for value in range(3):
     L.get_texts()[0].set_text('Adelie')
     L.get_texts()[1].set_text('Chinstrap')
     L.get_texts()[2].set_text('Gentoo')
+
+# Multinomial Logistic Regression
+LR=LogisticRegression(max_iter=1000,multi_class="multinomial",C=best_depth,solver="lbfgs")
+LR.fit(X_train,y_train)
+LR.score(X_train,y_train), LR.score(X_test,y_test)
+
+# Inspect wrong cases
+y_train_pred = LR.predict(X_train)
+y_train_pred
+
+from sklearn.metrics import confusion_matrix
+c = confusion_matrix(y_train, y_train_pred)
+print(c)
+
+mistakes = X_train[y_train != y_train_pred]
+mistake_labels = y_train[y_train != y_train_pred]
+mistake_preds = y_train_pred[y_train != y_train_pred]
+
+print(mistake_preds, mistake_labels)
+
+mistakes["Correct Species"] = mistake_labels.tolist()
+mistakes["Predicted Species"] = mistake_preds.tolist()
+mistakes
+
+penguins_copy = penguins.copy()
+
+le = preprocessing.LabelEncoder()
+penguins_copy["Island"] = le.fit_transform(penguins_copy["Island"])
+
+penguins_copy.groupby("Species").aggregate(np.mean)
+
+# Plot the decision regions
+from mlxtend.plotting import plot_decision_regions
+
+# fit the model on training set again
+LR=LogisticRegression(max_iter=1000,multi_class="multinomial",C=best_depth,solver="lbfgs")
+LR.fit(X_train,y_train)
+
+# create subplots
+fig,ax=plt.subplots(1,3,figsize=(20,5))
+width = 0.5
+
+# loop through each of the 3 islands
+for value in range(3):
+    # plot the decision graph for entries of this specific island
+    plot_decision_regions(np.array(X_train), np.array(y_train), clf = LR,
+                          feature_index=[1,2],
+                          filler_feature_values={0: value},
+                          filler_feature_ranges={0: width},
+                          ax=ax[value])
+    # setting appropriate title and labels
+    ax[value].set(title="Island = " + sorted(list(set(penguins["Island"])))[value],
+                  xlabel="Culmen Length (mm)",
+                  ylabel="Body Mass (g)")
+    # setting legend back to species' names
+    L=ax[value].legend()
+    L.get_texts()[0].set_text('Adelie')
+    L.get_texts()[1].set_text('Chinstrap')
+    L.get_texts()[2].set_text('Gentoo')
